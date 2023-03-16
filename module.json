@@ -1,0 +1,31 @@
+{
+  "id": "svg-token-text",
+  "title": "SVG Token Text",
+  "description": "Allows tokens that use SVG images to dynamically fill out text data elements derived from their actor given a valid key.",
+  "authors":[{
+    "name": "EndlesNights",
+    "url": "https://gitlab.com/EndlesNights",
+    "email": "endlesnights@gmail.com",
+    "discord": "endlesnights#9000"
+  }],
+  "version": "0.1.0",
+	"compatibility": {
+		"minimum": 10,
+		"verified": 10
+	},
+  "esmodules": [
+    "module.js"
+  ],
+  "relationships": {
+    "requires": [
+        {
+            "id": "lib-wrapper",
+            "type": "module",
+            "compatibility": {
+                "minimum": "1.0.0.0",
+                "verified": "1.12.6.0"
+            }
+        }
+    ]
+  }
+}
