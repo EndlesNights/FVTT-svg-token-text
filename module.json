@@ -8,7 +8,7 @@
     "email": "endlesnights@gmail.com",
     "discord": "endlesnights#9000"
   }],
-  "version": "0.1.0",
+  "version": "1.0.0",
 	"compatibility": {
 		"minimum": 10,
 		"verified": 10
@@ -27,5 +27,8 @@
             }
         }
     ]
-  }
+  },
+  "url": "https://github.com/EndlesNights/FVTT-svg-token-text",
+	"manifest": "https://raw.githubusercontent.com/EndlesNights/FVTT-svg-token-text/main/module.json",
+	"download": "https://github.com/EndlesNights/FVTT-svg-token-text/archive/1.0.0.zip"
 }
