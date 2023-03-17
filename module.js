@@ -1,34 +1,66 @@
+const MODULE_ID = "svg-token-text";
+const MODULE_TITLE = "SVG Token Text";
 
-const MODULE_ID = "svg-token-text"
-
-Hooks.once('setup', async function() {
-    console.log("SVG loader started thingy");
-
-
-});
-
-
-Hooks.once('ready', () => {
-    if(!game.modules.get('lib-wrapper')?.active && game.user.isGM)
+Hooks.once('ready', async function () {
+    if(!game.modules.get('lib-wrapper')?.active && game.user.isGM){
         ui.notifications.error("Module XYZ requires the 'libWrapper' module. Please install and activate it.");
+    }
+
+    console.log(`${MODULE_TITLE} - Module Loaded!`);
 });
 
+
+Hooks.on('updateToken', async function (token, update, obj, userID){
+    let src = token.texture.src;
+
+    if(!validateSVG(src)){
+        return;
+    }
+
+    let svgData = await fetch(src).then(response => response.text());
+
+    //check for a custom attribute tag to that checks if the SVG should be dynamicly edited
+    if(!validateDynamicSVG(svgData)){
+        return;
+    }
+
+    const pattern = /@([\w.]+)/g;
+    const matches = svgData.match(pattern).map(str => str.slice(1));
+    
+    for (const match of matches) {
+        if ( hasKey(update, match)) {
+
+            //Redraw the SVG if one of the drawn values is updated
+            const priorVisible = token.object.visible;
+            await token.object.draw();
+            token.object.visible = priorVisible;
+
+            return;
+        }
+    }
+});
 
 Hooks.once('init', async function() {
     libWrapper.register(
         MODULE_ID,
         "Token.prototype._draw",
-        _drawSVG
+        drawSVG
     );
 });
 
-async function _drawSVG(wrapped){
+async function drawSVG(wrapped){
     // return wrapped();
     
-    let src = this.document.texture.src;
-    let rgx = new RegExp(`(\\.svg)(\\?.*)?`, "i");
-    console.log(src);
-    if(!rgx.test(src)){
+    const src = this.document.texture.src;
+
+    if(!validateSVG(src)){
+        return wrapped();
+    }
+
+    let svgData = await fetch(src).then(response => response.text());
+
+    //check for a custom attribute tag to that checks if the SVG should be dynamicly edited
+    if(!validateDynamicSVG(svgData)){
         return wrapped();
     }
 
@@ -40,83 +72,79 @@ async function _drawSVG(wrapped){
 
     // Load token texture
     let texture;
-    if ( this.isPreview ) texture = this._original.texture?.clone();
+    if ( this.isPreview ){
+        texture = this._original.texture?.clone();
+    }
     else {
-        console.log(this.document.actor.system)
-        // texture = await loadTexture(this.document.texture.src, {fallback: CONST.DEFAULT_TOKEN});
-
-        let src = this.document.texture.src;
-        // let src = "https://s3-us-west-2.amazonaws.com/s.cdpn.io/106114/bee.svg";
-
-        // const svgData = await fetch(src).then(response => response);
-        let svgData = await fetch(src).then(response => response.text());
-
-
-
-        // texture = new PIXI.Texture.fromImage('data:image/svg+xml;charset=utf8,' + svgData);
-        // const svgData = await fetch(src);
-        console.log(svgData)
 
         svgData = replaceObjectKeys(svgData, this.document.actor);
-        let str = `data:image/svg+xml;charset=utf8,` +  svgData;
-        console.log(str)
+        const blob = new Blob([svgData], {type: 'image/svg+xml'});
+        const url = URL.createObjectURL(blob);
+        // const image = document.createElement('img');
+        // image.addEventListener('load', () => URL.revokeObjectURL(url), {once: true});
+        // image.src = url;
     
+        // texture = await new PIXI.Texture.from(svgData);
 
-
-        
-
-
-
-
-
-
-
-        //icons/svg/circle.svg
-        // texture = await new PIXI.Texture(svgData);
-        // texture = await new PIXI.Texture.from('data:image/svg+xml;charset=utf8,<svg xmlns="http://www.w3.org/2000/svg" version="1.0" width="480" height="543.03003" viewBox="0 0 257.002 297.5" xml:space="preserve"><g transform="matrix(0.8526811,0,0,0.8526811,18.930632,21.913299)"><polygon points="8.003,218.496 0,222.998 0,74.497 8.003,78.999 8.003,218.496 "/><polygon points="128.501,287.998 128.501,297.5 0,222.998 8.003,218.496 128.501,287.998 " /><polygon points="249.004,218.496 257.002,222.998 128.501,297.5 128.501,287.998 249.004,218.496 " /><polygon points="249.004,78.999 257.002,74.497 257.002,222.998 249.004,218.496 249.004,78.999 " /><polygon points="128.501,9.497 128.501,0 257.002,74.497 249.004,78.999 128.501,9.497 " /><polygon points="8.003,78.999 0,74.497 128.501,0 128.501,9.497 8.003,78.999 " /></g></svg>');
-        
-        
-        // texture = await new PIXI.Texture.from(str);
-        texture = await new PIXI.Texture.from(svgData);
+        texture = await loadTexture(url, {fallback: CONST.DEFAULT_TOKEN});
     }
 
     this.texture = texture;
-
-    // Draw the TokenMesh in the PrimaryCanvasGroup
     this.mesh = canvas.primary.addToken(this);
-    // this.#animationAttributes = this.getDisplayAttributes();
-    this.animationAttributes = this.getDisplayAttributes();
-
-    // Draw the border frame in the GridLayer
-    this.border ||= canvas.grid.borders.addChild(new PIXI.Graphics());
-
-    // Draw Token interface components
-    this.bars = this.addChild(this._drawAttributeBars());
-    this.tooltip = this.addChild(this._drawTooltip());
-    this.effects = this.addChild(new PIXI.Container());
-
-    this.target = this.addChild(new PIXI.Graphics());
-    this.nameplate = this.addChild(this._drawNameplate());
-
-    // Draw elements
-    this.drawBars();
-    await this.drawEffects();
-
-    // Define initial interactivity and visibility state
-    this.hitArea = new PIXI.Rectangle(0, 0, this.w, this.h);
-    this.buttonMode = true;
 }
 
-function replaceObjectKeys(inputString, data) {
-    const outputString = inputString.replace(/@([\w.]+)/g, (match, key) => {
+function replaceObjectKeys(svgData, data) {
+    const outputString = svgData.replace(/@([\w.]+)/g, (match, key) => {
       const keys = key.split(".");
       let value = data;
       keys.forEach(k => {
-        value = value[k];
+        if(value[k] != undefined ){
+            value = value[k];
+        } else {
+            //TODO make a fall back string option, otherwise use the current key
+            value = key;
+        }
       });
+      
       return value;
     });
   
-    console.log(outputString)
     return outputString;
 }
+
+function validateSVG(src){
+    let rgx = new RegExp(`(\\.svg)(\\?.*)?`, "i");
+    return rgx.test(src);
+}
+
+function validateDynamicSVG(svgData){
+  // Create a dummy element to hold the svg string
+  const dummyElement = document.createElement('div');
+  dummyElement.innerHTML = svgData;
+  const element = dummyElement.firstElementChild;
+
+  // Check if the element has a dsvg attribute
+  return element.hasAttribute('dsvg');
+//   if (element.hasAttribute('dsvg')) {
+//     // Get the value of the class attribute
+//     const dynamicSVG = element.getAttribute('dsvg');
+//     return !!dynamicSVG;
+//   } else {
+//     return false;
+//   }
+}
+
+function hasKey(obj, key) {
+    if (obj.hasOwnProperty(key)) {
+      return true;
+    } else {
+      for (const prop in obj) {
+        if (typeof obj[prop] === "object") {
+          if (hasKey(obj[prop], key)) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  }
