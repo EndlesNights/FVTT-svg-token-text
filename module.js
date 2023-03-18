@@ -26,15 +26,13 @@ Hooks.on('updateToken', async function (token, update, obj, userID){
 
     const pattern = /@([\w.]+)/g;
     const matches = svgData.match(pattern).map(str => str.slice(1));
-    
+        
     for (const match of matches) {
-        if ( hasKey(update, match)) {
-
+        if(hasPath(update.actorData, match)){
             //Redraw the SVG if one of the drawn values is updated
             const priorVisible = token.object.visible;
             await token.object.draw();
             token.object.visible = priorVisible;
-
             return;
         }
     }
@@ -94,6 +92,7 @@ async function drawSVG(wrapped){
 }
 
 function replaceObjectKeys(svgData, data) {
+    console.log(data)
     const outputString = svgData.replace(/@([\w.]+)/g, (match, key) => {
       const keys = key.split(".");
       let value = data;
@@ -134,17 +133,18 @@ function validateDynamicSVG(svgData){
 //   }
 }
 
-function hasKey(obj, key) {
-    if (obj.hasOwnProperty(key)) {
-      return true;
-    } else {
-      for (const prop in obj) {
-        if (typeof obj[prop] === "object") {
-          if (hasKey(obj[prop], key)) {
-            return true;
-          }
-        }
+function hasPath(obj, path) {
+    // Split the path into an array of property names
+    const props = path.split('.');
+  
+    // Traverse the object to check if the property exists
+    let value = obj;
+    for (const prop of props) {
+      if (!value || !value.hasOwnProperty(prop)) {
+        return false;
       }
+      value = value[prop];
     }
-    return false;
+  
+    return true;
   }
